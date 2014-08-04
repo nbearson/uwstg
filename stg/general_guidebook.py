@@ -19,12 +19,11 @@ from constants import *
 import sys
 import logging
 
-import stg.modis_guidebook as modis_guidebook
-import stg.ctp_guidebook as ctp_guidebook
+from stg.dry import dry
 
 LOG = logging.getLogger(__name__)
 
-def parse_datetime_from_filename (file_name_string) :
+def parse_datetime_from_filename (file_path) :
     """parse the given file_name_string and create an appropriate datetime object
     that represents the datetime indicated by the file name; if the file name does
     not represent a pattern that is understood, None will be returned
@@ -32,16 +31,12 @@ def parse_datetime_from_filename (file_name_string) :
     
     datetime_to_return = None
     
-    # check to see the type of the file, then let the appropriate code parse it
-    if modis_guidebook.is_MODIS_file(file_name_string) :
-        datetime_to_return = modis_guidebook.parse_datetime_from_filename(file_name_string)
-    
-    if ctp_guidebook.is_CTP_file(file_name_string) :
-        datetime_to_return = ctp_guidebook.parse_datetime_from_filename(file_name_string)
+    guidebook = dry('guidebooks', 'is_my_file', file_path)
+    datetime_to_return = guidebook.parse_datetime_from_filename(file_path)
 
     return datetime_to_return
 
-def get_satellite_from_filename (file_name_string) :
+def get_satellite_from_filename (file_path) :
     """given a file name, figure out which satellite it's from
     if the file does not represent a known satellite name
     configuration None will be returned
@@ -50,25 +45,19 @@ def get_satellite_from_filename (file_name_string) :
     satellite_to_return = None
     instrument_to_return = None
     
-    if   modis_guidebook.is_MODIS_file(file_name_string) :
-        satellite_to_return, instrument_to_return = modis_guidebook.get_satellite_from_filename(file_name_string)
-    
-    if   ctp_guidebook.is_CTP_file(file_name_string) :
-        satellite_to_return, instrument_to_return = ctp_guidebook.get_satellite_from_filename(file_name_string)
+    guidebook = dry('guidebooks', 'is_my_file', file_path)
+    satellite_to_return, instrument_to_return = guidebook.get_satellite_from_filename(file_path)
 
     return satellite_to_return, instrument_to_return
 
-def get_variable_names (file_name_string, user_requested_names=[ ]) :
+def get_variable_names (file_path, user_requested_names=[ ]) :
     """get a list of variable names we expect to process from the file
     """
     
     var_names = set ( )
     
-    if modis_guidebook.is_MODIS_file(file_name_string) :
-        var_names.update(modis_guidebook.get_variable_names(user_requested_names))
-    
-    if ctp_guidebook.is_CTP_file(file_name_string) :
-        var_names.update(ctp_guidebook.get_variable_names(user_requested_names))
+    guidebook = dry('guidebooks', 'is_my_file', file_path)
+    var_names.update(guidebook.get_variable_names(user_requested_names))
 
     return var_names
 

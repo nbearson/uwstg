@@ -14,7 +14,7 @@ they're stored in the files, and how to manage them during the process of regrid
 """
 __docformat__ = "restructuredtext en"
 
-from constants import *
+from stg.constants import *
 
 import sys
 import os
@@ -106,6 +106,100 @@ FILL_VALUES = {
                   METHOD_FLAG_NAME            : -99,
 }
 
+# the line between day and night for our day/night masks (in solar zenith angle degrees)
+DAY_NIGHT_LINE_DEGREES = 84.0
+
+def open_file (file_path) :
+    """
+    given a file path that is a modis file, open it
+    """
+    ctp_names = [
+             LATITUDE_NAME              ,
+             LONGITUDE_NAME             ,
+             CLOUD_TOP_PRESS_NAME       ,
+             CLOUD_TOP_HEIGHT_NAME      ,
+             CLOUD_TOP_TEMP_NAME        ,
+             EFFECTIVE_CLOUD_AMOUNT_NAME,
+             METHOD_FLAG_NAME           ,
+             DAY_NIGHT_FLAG_NAME        ,
+             DIRECTION_FLAG_NAME        ,
+             VIEWING_ZENITH_NAME        ,
+             SCAN_LINE_TIME_NAME        ,
+             CLOUD_FRACTION_NAME        ,
+             LAND_FRACTION_NAME         ,
+             RESULTS_FLAG_NAME          ,
+             UTLS_FLAG_NAME             ,
+    ]
+
+    ctp_formats = ['(1100,56)f4'] * 15   # they're all the same
+
+    ctp_type = numpy.dtype({'names' : ctp_names,
+                            'formats' : ctp_formats})
+
+    file_object = numpy.fromfile(file_path, dtype=ctp_type) # FIXME: will we have a problem from treating a numpy array as a file object? passing it around?
+
+    return file_object
+
+def close_file (file_object) :
+    """
+    given a file object, close it
+    """
+    del file_object
+
+
+def load_aux_data (file_path, minimum_scan_angle, file_object=None) :
+    """
+    load the auxillary data and process the appropriate masks from it
+    """
+    
+    # make our return structure
+    aux_data_sets = { }
+    
+    # load the longitude and latitude
+    file_object, aux_data_sets[LON_KEY] = load_variable_from_file (LONGITUDE_NAME,
+                                                                   file_path=file_path, file_object=file_object)
+    file_object, aux_data_sets[LAT_KEY] = load_variable_from_file (LATITUDE_NAME,
+                                                                   file_path=file_path, file_object=file_object)
+    
+    # load the day/night flag to make day/night mask
+    file_object, day_night_flag         = load_variable_from_file (DAY_NIGHT_FLAG_NAME,
+                                                                   file_path=file_path, file_object=file_object)
+
+    # build the day and night masks
+    aux_data_sets[DAY_MASK_KEY]   = (day_night_flag == 1)
+    aux_data_sets[NIGHT_MASK_KEY] = (day_night_flag == 2)
+    
+    return file_object, aux_data_sets
+
+# FUTURE, the data type needs to be handled differently
+def load_variable_from_file (variable_name, file_path=None, file_object=None,
+                             fill_value_name=None,
+                             scale_name=None,
+                             offset_name=None,
+                             data_type_for_output=numpy.float32) :
+    """
+    load a given variable from a file path or file object
+    """
+    if file_path is None and file_object is None :
+        raise ValueError("File path or file object must be given to load file.")
+    if file_object is None :
+        file_object = open_file(file_path)
+
+    data = file_object[variable_name]
+
+    # Mask off fill values fill values
+    if variable_name in FILL_VALUES:
+      fill_value = FILL_VALUES[variable_name]
+      data[data == fill_value] = numpy.nan
+
+    # Mask off anything outside the valid range
+    if variable_name in VALID_RANGES:
+      valid_range = VALID_RANGES[variable_name]
+      data[data < valid_range[0]] = numpy.nan
+      data[data > valid_range[1]] = numpy.nan
+
+    data_to_return = data.astype(data_type_for_output) if data_type_for_output is not None else data
+    return file_object, data
 
 # TODO, move this up to the general_guidebook
 def _clean_off_path_if_needed(file_name_string) :
@@ -115,7 +209,7 @@ def _clean_off_path_if_needed(file_name_string) :
     
     return os.path.basename(file_name_string)
 
-def is_CTP_file (file_name_string) :
+def is_my_file (file_name_string) :
     """determine if a file name is the right pattern to represent a CTP file
     if the file_name_string matches how we expect CTP files to look return
     TRUE else will return FALSE

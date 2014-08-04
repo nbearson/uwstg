@@ -23,11 +23,11 @@ python setup.py install --install-dir=$HOME/Library/Python
 from setuptools import setup, find_packages
 
 setup( name="spacetimegrid", 
-       version="0.1", 
+       version="0.2",
        zip_safe = True,
        entry_points = { 'console_scripts': [ 'stg = stg.space_time_gridding:main', 'stg_plot = stg.plot_tools:main' ] },
        packages = ['stg'], #find_packages('.'),
-       install_requires=[ 'numpy', 'scipy' ],
+       install_requires=[ 'numpy', 'scipy', 'keoni' ],
        #package_data = {'': ['*.txt', '*.gif']}
        )
 
